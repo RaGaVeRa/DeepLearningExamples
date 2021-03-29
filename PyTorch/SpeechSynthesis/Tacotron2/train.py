@@ -85,6 +85,8 @@ def parse_args(parser):
                           help='Number of epochs per checkpoint')
     training.add_argument('--checkpoint-path', type=str, default='',
                           help='Checkpoint path to resume training')
+    training.add_argument('--drop-text-embedding-weights', action='store_true',
+                          help='Drop text embedding layer when training over a pre-trained model from different language')
     training.add_argument('--resume-from-last', action='store_true',
                           help='Resumes training from the last checkpoint; uses the directory provided with \'--output\' option to search for the checkpoint \"checkpoint_<model_name>_last.pt\"')
     training.add_argument('--dynamic-loss-scaling', type=bool, default=True,
@@ -242,8 +244,16 @@ def get_last_checkpoint_filename(output_dir, model_name):
         print("No last checkpoint available - starting from epoch 0 ")
         return ""
 
+def ignore_layers(model, model_dict, layers):
+    if len(layers) > 0:
+        new_dict = {k: v for k, v in model_dict.items()
+                      if k not in layers}
+        dummy_dict = model.state_dict()
+        dummy_dict.update(new_dict)
+        model_dict = dummy_dict
+    return model_dict
 
-def load_checkpoint(model, optimizer, epoch, config, amp_run, filepath, local_rank):
+def load_checkpoint(model, optimizer, epoch, config, amp_run, filepath, local_rank, drop_text_embedding_weights):
 
     checkpoint = torch.load(filepath, map_location='cpu')
 
@@ -257,8 +267,12 @@ def load_checkpoint(model, optimizer, epoch, config, amp_run, filepath, local_ra
     else:
         raise Exception("Model checkpoint must have either 'random_rng_state' or 'random_rng_states_all' key.")
     config = checkpoint['config']
-    model.load_state_dict(checkpoint['state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
+    state_dict = checkpoint['state_dict']
+    if drop_text_embedding_weights:
+        state_dict = ignore_layers(model, state_dict, ['module.embedding.weight'])
+    model.load_state_dict(state_dict)
+    if drop_text_embedding_weights == False:
+        optimizer.load_state_dict(checkpoint['optimizer'])
 
     if amp_run:
         amp.load_state_dict(checkpoint['amp'])
@@ -412,7 +426,7 @@ def main():
 
     if args.checkpoint_path is not "":
         load_checkpoint(model, optimizer, start_epoch, model_config,
-                        args.amp, args.checkpoint_path, local_rank)
+                        args.amp, args.checkpoint_path, local_rank, args.drop_text_embedding_weights)
 
     start_epoch = start_epoch[0]
 
