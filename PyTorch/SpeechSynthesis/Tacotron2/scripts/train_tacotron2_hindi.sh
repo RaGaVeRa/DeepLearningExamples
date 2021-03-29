@@ -1,0 +1,2 @@
+mkdir -p output2
+python -m multiproc train.py -m Tacotron2 -o ./output2/ -lr 1e-3 --epochs 7501 -bs 16 --weight-decay 1e-6 --grad-clip-thresh 1.0 --cudnn-enabled --log-file nvlog.json --anneal-steps 6500 7000 7500 --anneal-factor 0.1 --amp --text-cleaners basic_cleaners --training-files filelists/md_audio_text_train.txt --validation-files filelists/md_audio_text_val.txt --checkpoint-path tacotron2_1032590_6000_amp --drop-text-embedding-weights
