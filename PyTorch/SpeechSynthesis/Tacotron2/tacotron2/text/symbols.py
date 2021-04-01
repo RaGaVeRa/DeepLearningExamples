@@ -7,10 +7,11 @@ The default is a set of ASCII characters that works well for English or text tha
 from tacotron2.text import cmudict
 
 _pad        = '_'
-_punctuation = ',.!?'
+_punctuation = ',.!?\'(): '
 _eos        = ';'
 _special = '-'
-_letters = ' ोुेँै्ॉौ़ंिूृाीःपरखजघकठबआथइफदञउएनडयईशऋमछलअऔवओषऐझधहणगभसतऊचढऑट '
+_letters = 'ँंः़ािीुूृेैॉोौ्अआइईउऊऋएऐऑओऔकखगघङचछजझञटठडढणतथदधनपफबभमयरलवषशसह'
+
 
 # Prepend "@" to ARPAbet symbols to ensure uniqueness (some are the same as uppercase letters):
 _arpabet = ['@' + s for s in cmudict.valid_symbols]
