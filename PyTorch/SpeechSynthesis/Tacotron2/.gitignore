@@ -2,10 +2,5 @@ __pycache__/
 /checkpoints/
 /output/
 nvlog.json
-/Tacotron2_WaveGlow_Hindi_Modi_TransferLearningFromLJS/
 /filelists/md_*
 /md_dataset_folder/
-tacotron2_1032590_6000_amp
-waveglow_1076430_14000_amp
-nvidia_waveglow256pyt_fp16
-output_*
