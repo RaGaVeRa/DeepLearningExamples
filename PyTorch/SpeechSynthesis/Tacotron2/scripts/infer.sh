@@ -4,8 +4,9 @@ export TZ=Asia/Calcutta
 
 TIME_YTD=$(date "+%Y_%m_%d_%H_%M")
 
-#Text file for inference
-TEXT_FILE=phrases/test_phrases.txt
+git config --global user.email "anilkumar911@gmail.com"
+git config --global user.name "Anil Kumar K K"
+git config --global credential.helper store
 
 if [[ ${EXPERIMENT_NAME}"zxzx" == "zxzx" ]]
 then
@@ -19,11 +20,15 @@ then
 	exit
 fi
 
+#Text file for inference
+#TEXT_FILE=output/${EXPERIMENT_NAME}/kan_infer_phrases.txt
+TEXT_FILE=output/${EXPERIMENT_NAME}/tam_hin_transliteration.txt
+
 #Edit below 3 variables before starting inference
-INFER_DIR=output/${EXPERIMENT_NAME}/output_infer_taco6900_wg14500_${TIME_YTD}
+INFER_DIR=output/${EXPERIMENT_NAME}/output_infer_taco7500_wg15425_newphrases_${TIME_YTD}
 #Checkpoint files
-TACO_CHECKPOINT="output/checkpoint_Tacotron2_6900.pt"
-WAVEGLOW_CHECKPOINT="output/checkpoint_WaveGlow_14500.pt"
+TACO_CHECKPOINT="output/checkpoint_Tacotron2_7500.pt"
+WAVEGLOW_CHECKPOINT="output/checkpoint_WaveGlow_15425.pt"
 
 
 if [[ -d $INFER_DIR ]]
@@ -50,6 +55,10 @@ fi
 #export INFER_CMD="python inference.py --tacotron2 ${TACO_CHECKPOINT} --waveglow ${WAVEGLOW_CHECKPOINT} --wn-channels 256 -o ${INFER_DIR}/ -i ${TEXT_FILE} --fp16 --n-symbols 148"
 export INFER_CMD="python inference.py --tacotron2 ${TACO_CHECKPOINT_FILE} --waveglow ${WAVEGLOW_CHECKPOINT_FILE} --wn-channels 256 -o ${INFER_DIR}/ -i ${TEXT_FILE} --fp16"
 
+cd ${INFER_DIR}
+git pull
+cd -
+
 cp ${TEXT_FILE} ${INFER_DIR}/
 
 echo "Inference command:" > ${INFER_DIR}/Readme
@@ -64,6 +73,8 @@ echo "Waveglow checkpoint file: " ${WAVEGLOW_CHECKPOINT} >> ${INFER_DIR}/Readme
 echo "Running command : ${INFER_CMD}"
 
 time ${INFER_CMD} | tee ${INFER_DIR}/infer.out
+
+cp output/${EXPERIMENT_NAME}/playback_template.html ${INFER_DIR}/playback.html
 
 cd output/${EXPERIMENT_NAME}/
 git add *
