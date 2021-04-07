@@ -37,6 +37,9 @@
 		.sticky + .content {
 			padding-top: 102px;
 		}
+		audio {
+			width: 200px;
+		}
 	</style>
  </head>
   <body>
