@@ -74,7 +74,7 @@
 	</script>
 	</br>
 <?php 
-		foreach (glob("output_infer_*") as $filename) {
+		foreach (glob("*infer_*") as $filename) {
 			echo "<h2>". "$filename" . "</h2>\n";
 			echo "<table id=\"A1\">\n";
 			echo "<tr>\n";
