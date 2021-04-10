@@ -4,91 +4,146 @@ export TZ=Asia/Calcutta
 
 TIME_YTD=$(date "+%Y_%m_%d_%H_%M")
 
-git config --global user.email "anilkumar911@gmail.com"
-git config --global user.name "Anil Kumar K K"
-git config --global credential.helper store
+usage()
+{
+	echo "$0 -x <experiment_name> -o <Tacotron2_training_output_directory> -O <waveglow_training_output_directory> -i<inference_output_directory> -p <phrases_file> -c <Tacotron2_checkpoint_file> -C <Waveglow_checkpoint_file>"
+}
 
-if [[ ${EXPERIMENT_NAME}"zxzx" == "zxzx" ]]
-then
-	echo "Environment variable EXPERIMENT_NAME not set. Please set it and re-run this script"
-	exit
-fi
+parseArguments()
+{
+	while getopts ":x:o:O:i:p:c:C:" opt; do
+		case "${opt}" in
+			x)
+				EXPERIMENT_NAME=${OPTARG}
+				;;
+			o)
+				TACO2_OUTDIR=${OPTARG}
+				;;
+			O)
+				WAVEGLOW_OUTDIR=${OPTARG}
+				;;
+			i)
+				INFERENCE_OUTDIR=${OPTARG}
+				;;
+			p)
+				TEXT_FILE=${OPTARG}
+				;;
+			c)
+				TACO2_CHECKPOINT=${OPTARG}
+				;;
+			C)
+				WAVEGLOW_CHECKPOINT=${OPTARG}
+				;;
+			*)
+				usage
+				exit 1
+				;;
+		esac
+	done
+}
 
-#check for php
-php --version
+main()
+{
+	parseArguments $*
 
-OUTPUT_FOLDER=output_tacotron2_sgk
-if [[ ! -d ${OUTPUT_FOLDER}/${EXPERIMENT_NAME} ]]
-then
-	echo "The git repository ${EXPERIMENT_NAME} has not been cloned under ./output/ directory. Clone the directory and rerun this script"
-	exit
-fi
+	echo "EXPERIMENT_NAME     : "${EXPERIMENT_NAME}
+	echo "WAVEGLOW_OUTDIR     : "${WAVEGLOW_OUTDIR}
+	echo "TACO2_OUTDIR        : "${TACO2_OUTDIR}
+	echo "INFERENCE_OUTDIR    : "${INFERENCE_OUTDIR}
+	echo "TEXT_FILE           : "${TEXT_FILE}
+	echo "TACO2_CHECKPOINT    : "${TACO2_CHECKPOINT}
+	echo "WAVEGLOW_CHECKPOINT : "${WAVEGLOW_CHECKPOINT}
 
-#Text file for inference
-#TEXT_FILE=output/${EXPERIMENT_NAME}/kan_infer_phrases.txt
-TEXT_FILE=${OUTPUT_FOLDER}/${EXPERIMENT_NAME}/phrases.txt
-if [[ ! -f ${TEXT_FILE} ]]
-then
-	echo "Error: ${TEXT_FILE} not found"
-	exit
-fi
+	if [ -z $EXPERIMENT_NAME ] || [ -z $WAVEGLOW_OUTDIR ] || [ -z $TACO2_OUTDIR ] || [ -z $INFERENCE_OUTDIR ] || [ -z $TEXT_FILE ] || [ -z $TACO2_CHECKPOINT ] || [ -z $WAVEGLOW_CHECKPOINT ]
+	then
+		usage
+		exit 1
+	fi
 
-#Edit below 3 variables before starting inference
-INFER_DIR=${OUTPUT_FOLDER}/${EXPERIMENT_NAME}/output_infer_taco125_wg200_${TIME_YTD}
-#Checkpoint files
-TACO_CHECKPOINT="${OUTPUT_FOLDER}/checkpoint_Tacotron2_125.pt"
-WAVEGLOW_CHECKPOINT="output_waveglow_sgk/checkpoint_WaveGlow_200.pt"
+	git config --global user.email "anilkumar911@gmail.com"
+	git config --global user.name "Anil Kumar K K"
+	git config --global credential.helper store
+
+	if [[ -z ${EXPERIMENT_NAME} ]]
+	then
+		echo "Environment variable EXPERIMENT_NAME not set. Please set it and re-run this script"
+		exit
+	fi
+
+	#check for php
+	php --version >/dev/null 2>&1
+
+	if [[ ! -d ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME} ]]
+	then
+		echo "The git repository ${EXPERIMENT_NAME} has not been cloned under ./output/ directory. Clone the directory and rerun this script"
+		exit
+	fi
+
+	if [[ ! -f ${TEXT_FILE} ]]
+	then
+		echo "Error: ${TEXT_FILE} not found"
+		exit
+	fi
 
 
-if [[ -d $INFER_DIR ]]
-then
-	echo "$INFER_DIR already exists. Specify a new directory"
-	exit -1
-fi
-mkdir -p ${INFER_DIR}
+	if [[ -L ${TACO2_OUTDIR}/${TACO2_CHECKPOINT} ]]
+	then
+		TACO_CHECKPOINT_FILE=$(ls -l ${TACO2_OUTDIR}/${TACO2_CHECKPOINT} | awk '{print $11}')
+	else
+		TACO_CHECKPOINT_FILE=${TACO2_OUTDIR}/${TACO2_CHECKPOINT}
+	fi
 
-if [[ -L ${TACO_CHECKPOINT} ]]
-then
-	TACO_CHECKPOINT_FILE=$(ls -l ${TACO_CHECKPOINT} | awk '{print $11}')
-else
-	TACO_CHECKPOINT_FILE=${TACO_CHECKPOINT}
-fi
+	if [[ -L ${WAVEGLOW_OUTDIR}/${WAVEGLOW_CHECKPOINT} ]]
+	then
+		WAVEGLOW_CHECKPOINT_FILE=$(ls -l ${WAVEGLOW_OUTDIR}/${WAVEGLOW_CHECKPOINT} | awk '{print $11}')
+	else
+		WAVEGLOW_CHECKPOINT_FILE=${WAVEGLOW_OUTDIR}/${WAVEGLOW_CHECKPOINT}
+	fi
 
-if [[ -L ${WAVEGLOW_CHECKPOINT} ]]
-then
-	WAVEGLOW_CHECKPOINT_FILE=$(ls -l ${WAVEGLOW_CHECKPOINT} | awk '{print $11}')
-else
-	WAVEGLOW_CHECKPOINT_FILE=${WAVEGLOW_CHECKPOINT}
-fi
+	TACO2_CHECKPOINT_tmp=${TACO2_CHECKPOINT%.pt}
+	WAVEGLOW_CHECKPOINT_tmp=${WAVEGLOW_CHECKPOINT%.pt}
+	INFER_DIR=${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}/infer_${TACO2_CHECKPOINT_tmp#checkpoint_}_${WAVEGLOW_CHECKPOINT_tmp#checkpoint_}_${TIME_YTD}
+	if [[ -d $INFER_DIR ]]
+	then
+		echo "$INFER_DIR already exists. Specify a new directory"
+		exit -1
+	fi
+	mkdir -p ${INFER_DIR}
 
-#export INFER_CMD="python inference.py --tacotron2 ${TACO_CHECKPOINT} --waveglow ${WAVEGLOW_CHECKPOINT} --wn-channels 256 -o ${INFER_DIR}/ -i ${TEXT_FILE} --fp16 --n-symbols 148"
-export INFER_CMD="python inference.py --tacotron2 ${TACO_CHECKPOINT_FILE} --waveglow ${WAVEGLOW_CHECKPOINT_FILE} --wn-channels 256 -o ${INFER_DIR}/ -i ${TEXT_FILE} --fp16"
 
-#cd ${INFER_DIR}
-cd ${OUTPUT_FOLDER}/${EXPERIMENT_NAME}
-git pull
-cd -
+	INFER_CMD="python inference.py --tacotron2 ${TACO_CHECKPOINT_FILE} --waveglow ${WAVEGLOW_CHECKPOINT_FILE} --wn-channels 256 -o ${INFER_DIR}/ -i ${TEXT_FILE} --fp16"
 
-cp ${TEXT_FILE} ${INFER_DIR}/
+	#cd ${INFER_DIR}
+	cd ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}
+	git pull
+	cd -
 
-echo "Inference command:" > ${INFER_DIR}/Readme
-echo $INFER_CMD >> ${INFER_DIR}/Readme
+	cp ${TEXT_FILE} ${INFER_DIR}/
 
-echo $INFER_CMD >> ${INFER_DIR}/infer.sh
+	echo "Inference command:" > ${INFER_DIR}/Readme
+	echo $INFER_CMD >> ${INFER_DIR}/Readme
+	echo "" >> ${INFER_DIR}/Readme
+	echo $* >> ${INFER_DIR}/Readme
 
-echo "Tacotron2 checkpoint file : " $TACOTRON2_CHECKPOINT_FILE >> ${INFER_DIR}/Readme
+	echo $INFER_CMD >> ${INFER_DIR}/infer.sh
 
-echo "Waveglow checkpoint file: " ${WAVEGLOW_CHECKPOINT} >> ${INFER_DIR}/Readme
+	echo "Tacotron2 checkpoint file : " $TACOTRON2_CHECKPOINT_FILE >> ${INFER_DIR}/Readme
 
-echo "Running command : ${INFER_CMD}"
+	echo "Waveglow checkpoint file: " ${WAVEGLOW_CHECKPOINT} >> ${INFER_DIR}/Readme
 
-time ${INFER_CMD} | tee ${INFER_DIR}/infer.out
+	echo "Running command : ${INFER_CMD}"
 
-#cp ${OUTPUT_FOLDER}/${EXPERIMENT_NAME}/playback_template.html ${INFER_DIR}/playback.html
+	echo "Good to go?, hit <ENTER>, else <CTRL+C>"
+	read
+	time ${INFER_CMD} | tee ${INFER_DIR}/infer.out
 
-cd ${OUTPUT_FOLDER}/${EXPERIMENT_NAME}/
-php ../../scripts/create_page.php > inference_summary.html
+	cp ${TEXT_FILE} ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}/phrases.txt
+	cd ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}/
+	php ../../scripts/create_page.php > inference_summary.html
 
-git add *
-git commit -m "Inference with ${TACO_CHECKPOINT_FILE} and ${WAVEGLOW_CHECKPOINT_FILE}"
-git push
+	git add *
+	git commit -m "Inference with ${TACO_CHECKPOINT_FILE} and ${WAVEGLOW_CHECKPOINT_FILE}"
+	git push
+}
+
+main $*
