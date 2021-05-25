@@ -114,9 +114,9 @@ main()
 	INFER_CMD="python inference.py --tacotron2 ${TACO_CHECKPOINT_FILE} --waveglow ${WAVEGLOW_CHECKPOINT_FILE} --wn-channels 256 -o ${INFER_DIR}/ -i ${TEXT_FILE} --fp16"
 
 	#cd ${INFER_DIR}
-	cd ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}
-	git pull
-	cd -
+	#cd ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}
+	#git pull
+	#cd -
 
 	cp ${TEXT_FILE} ${INFER_DIR}/
 
@@ -137,7 +137,11 @@ main()
 	read
 	time ${INFER_CMD} | tee ${INFER_DIR}/infer.out
 
-	cp ${TEXT_FILE} ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}/phrases.txt
+	if [[ ! -f ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}/phrases.txt ]]
+	then
+		cp ${TEXT_FILE} ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}/phrases.txt
+	fi
+
 	cd ${INFERENCE_OUTDIR}/${EXPERIMENT_NAME}/
 	php ../../scripts/create_page.php > inference_summary.html
 
