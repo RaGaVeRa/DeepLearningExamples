@@ -11,10 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM nvcr.io/nvidia/tritonserver:20.06-py3-clientsdk AS triton
+FROM nvcr.io/nvidia/tritonserver:20.09-py3-clientsdk AS triton
 FROM continuumio/miniconda3
 RUN apt-get update && apt-get install -y pbzip2 pv bzip2 cabextract mc iputils-ping wget
-
+#tensorrt update
+#RUN apt-get install python3-libnvinfer-dev
 WORKDIR /workspace/speech_ai_demo_TTS/
 
 # Copy the perf_client over
@@ -39,5 +40,6 @@ RUN mkdir /workspace/speech_ai_demo_TTS/tacotron2/
 COPY ./tacotron2/text /workspace/speech_ai_demo_TTS/tacotron2/text
 RUN chmod a+x /workspace/speech_ai_demo_TTS/run_this.sh
 
-RUN conda install nodejs
+#RUN conda install nodejs=15.14.0
+RUN conda install -c conda-forge nodejs
 RUN jupyter labextension install @jupyter-widgets/jupyterlab-manager
