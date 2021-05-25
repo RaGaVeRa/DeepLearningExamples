@@ -90,3 +90,8 @@ def english_cleaners(text):
     text = expand_abbreviations(text)
     text = collapse_whitespace(text)
     return text
+
+def hindi_cleaners(text):
+    '''Basic pipeline that collapses whitespace without transliteration.'''
+    text = collapse_whitespace(text)
+    return text
