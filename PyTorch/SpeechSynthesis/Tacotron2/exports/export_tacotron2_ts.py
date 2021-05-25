@@ -38,7 +38,7 @@ def parse_args(parser):
     parser.add_argument('--tacotron2', type=str, required=True,
                         help='full path to the Tacotron2 model checkpoint file')
 
-    parser.add_argument('-o', '--output', type=str, default="trtis_repo/tacotron/1/model.pt",
+    parser.add_argument('-o', '--output', type=str, default="triton_models/tacotron2-ts-script/1/model.pt",
                         help='filename for the Tacotron 2 TorchScript model')
     parser.add_argument('--fp16', action='store_true',
                         help='inference with mixed precision')
@@ -54,7 +54,7 @@ def main():
     args = parser.parse_args()
 
     tacotron2 = load_and_setup_model('Tacotron2', parser, args.tacotron2,
-                                     amp_run=args.fp16, cpu_run=False,
+                                     fp16_run=args.fp16, cpu_run=False,
                                      forward_is_infer=True)
     
     jitted_tacotron2 = torch.jit.script(tacotron2)
