@@ -38,6 +38,10 @@ def parse_args(parser):
                         type=str,
                         default='waveglow',
                         help="exports to appropriate directory for TRTIS")
+    parser.add_argument("--out_dir",
+                        type=str,
+                        default='.',
+                        help="output directory")
     parser.add_argument("--trtis_model_version",
                         type=int,
                         default=1,
@@ -54,34 +58,33 @@ def main():
     args = parser.parse_args()
 
     # prepare repository
-    model_folder = os.path.join('./trtis_repo', args.trtis_model_name)
-    version_folder = os.path.join(model_folder, str(args.trtis_model_version))
-    if not os.path.exists(version_folder):
-        os.makedirs(version_folder)
+    #model_folder = os.path.join('./trtis_repo', args.trtis_model_name)
+    #version_folder = os.path.join(model_folder, str(args.trtis_model_version))
+    #if not os.path.exists(version_folder):
+        #os.makedirs(version_folder)
 
     # build the config for TRTIS
-    config_filename = os.path.join(model_folder, "config.pbtxt")
     config_template = r"""
 name: "{model_name}"
 platform: "tensorrt_plan"
-default_model_filename: "waveglow_fp16.engine"
+default_model_filename: "waveglow_fp32.engine"
 
 max_batch_size: 1
 
 input {{
   name: "mel"
   data_type: {fp_type}
-  dims: [80, -1, 1]
+  dims: [1, 80, -1]
 }}
 input {{
   name: "z"
   data_type: {fp_type}
-  dims: [8, -1, 1]
+  dims: [1, 8, -1]
 }}
 output {{
   name: "audio"
   data_type: {fp_type}
-  dims: [-1]
+  dims: [1, -1]
 }}
 """
 
@@ -90,7 +93,7 @@ output {{
         "fp_type": "TYPE_FP16" if args.fp16 else "TYPE_FP32"
     }
 
-    with open(model_folder + "/config.pbtxt", "w") as file:
+    with open(args.out_dir + "/config.pbtxt", "w") as file:
         final_config_str = config_template.format_map(config_values)
         file.write(final_config_str)
 
