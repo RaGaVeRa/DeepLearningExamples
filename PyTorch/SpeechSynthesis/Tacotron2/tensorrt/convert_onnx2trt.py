@@ -114,8 +114,8 @@ def main():
             sys.exit()
 
     # WaveGlow
-    shapes=[{"name": "mel", "min": (1,80,32),  "opt": (1,80,768),  "max": (1,80,1664)},
-            {"name": "z",   "min": (1,8,1024), "opt": (1,8,24576), "max": (1,8,53248)}]
+    shapes=[{"name": "mel", "min": (1,80,32),  "opt": (1,80,768),  "max": (1,80,2016)},
+            {"name": "z",   "min": (1,8,1024), "opt": (1,8,24576), "max": (1,8,64512)}]
     if args.waveglow != "":
         print("Building WaveGlow ...")
         waveglow_engine = build_engine(args.waveglow, shapes=shapes, fp16=args.fp16)
