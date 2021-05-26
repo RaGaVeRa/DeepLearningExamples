@@ -105,6 +105,7 @@ output [
     dims: [-1,-1]
   }}
 ]
+version_policy: { all { }}
 """
     
     config_values = {
