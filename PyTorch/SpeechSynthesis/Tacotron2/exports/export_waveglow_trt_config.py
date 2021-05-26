@@ -69,7 +69,7 @@ name: "{model_name}"
 platform: "tensorrt_plan"
 default_model_filename: "waveglow_fp32.engine"
 
-max_batch_size: 1
+max_batch_size: 0
 
 input {{
   name: "mel"
