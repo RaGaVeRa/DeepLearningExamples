@@ -35,10 +35,13 @@ COPY --from=triton /workspace/install/python/triton*.whl /tmp/
 RUN pip install /tmp/triton*.whl && rm /tmp/triton*.whl
 
 RUN cd /workspace/speech_ai_demo_TTS/
-COPY ./notebooks/triton/ .
-RUN mkdir /workspace/speech_ai_demo_TTS/tacotron2/
-COPY ./tacotron2/text /workspace/speech_ai_demo_TTS/tacotron2/text
-RUN chmod a+x /workspace/speech_ai_demo_TTS/run_this.sh
+#COPY ./notebooks/triton/ .
+#RUN mkdir /workspace/speech_ai_demo_TTS/tacotron2/
+#COPY ./tacotron2/text /workspace/speech_ai_demo_TTS/tacotron2/text
+#RUN chmod a+x /workspace/speech_ai_demo_TTS/run_this.sh
+
+RUN pip3 install torch==1.8.1+cpu torchvision==0.9.1+cpu torchaudio==0.8.1 -f https://download.pytorch.org/whl/torch_stable.html
+#COPY ./common /workspace/speech_ai_demo_TTS/common
 
 #RUN conda install nodejs=15.14.0
 RUN conda install -c conda-forge nodejs
