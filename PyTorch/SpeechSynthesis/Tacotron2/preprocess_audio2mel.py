@@ -48,8 +48,9 @@ def audio2mel(dataset_path, audiopaths_and_text, melpaths_and_text, args):
         if i%100 == 0:
             print("done", i, "/", len(melpaths_and_text_list))
 
-        mel = data_loader.get_mel(audiopaths_and_text_list[i][0])
-        torch.save(mel, melpaths_and_text_list[i][0])
+        if (i>-1):
+            mel = data_loader.get_mel(audiopaths_and_text_list[i][0])
+            torch.save(mel, melpaths_and_text_list[i][0])
 
 def main():
 

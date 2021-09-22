@@ -56,17 +56,28 @@ class TextMelLoader(torch.utils.data.Dataset):
     def get_mel_text_pair(self, audiopath_and_text):
         # separate filename and text
         audiopath, text = audiopath_and_text[0], audiopath_and_text[1]
+        #print(audiopath)
         len_text = len(text)
         text = self.get_text(text)
         mel = self.get_mel(audiopath)
         return (text, mel, len_text)
 
     def get_mel(self, filename):
+        #print(filename)
         if not self.load_mel_from_disk:
-            audio, sampling_rate = load_wav_to_torch(filename)
+            try:
+                audio, sampling_rate = load_wav_to_torch(filename)
+            except:
+                print ("Failed load_wav_to_torch() -- Delete this file from filelist")
+                print(filename)
+                return
+
             if sampling_rate != self.stft.sampling_rate:
-                raise ValueError("{} {} SR doesn't match target {} SR".format(
-                    sampling_rate, self.stft.sampling_rate))
+                #raise ValueError("{} {} SR doesn't match target {} SR".format(
+                #    filename, sampling_rate, self.stft.sampling_rate))
+                print("{} {} SR doesn't match target {} SR".format(
+                    filename, sampling_rate, self.stft.sampling_rate))
+                print('Delete this file from filelist')
             audio_norm = audio / self.max_wav_value
             audio_norm = audio_norm.unsqueeze(0)
             audio_norm = torch.autograd.Variable(audio_norm, requires_grad=False)
