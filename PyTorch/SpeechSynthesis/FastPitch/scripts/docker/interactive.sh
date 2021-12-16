@@ -1,5 +1,3 @@
 #!/usr/bin/env bash
 
-PORT=${PORT:-8888}
-
-docker run --gpus=all -it --rm -e CUDA_VISIBLE_DEVICES --ipc=host -p $PORT:$PORT -v $PWD:/workspace/fastpitch/ fastpitch:latest bash 
+nvidia-docker run --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -it --rm --ipc=host -v $PWD:/workspace/fastpitch/ fastpitch:latest bash
