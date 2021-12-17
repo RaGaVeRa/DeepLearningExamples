@@ -15,5 +15,5 @@ TESTLIST_MEL="$FILELISTSDIR/te_m_rp_mel_text_test_filelist.txt"
 
 mkdir -p "$DATADIR/mels"
 python preprocess_audio2mel.py --wav-files "$TRAINLIST" --mel-files "$TRAINLIST_MEL"
-python preprocess_audio2mel.py --wav-files "$TESTLIST" --mel-files "$TESTLIST_MEL"
 python preprocess_audio2mel.py --wav-files "$VALLIST" --mel-files "$VALLIST_MEL"	
+python preprocess_audio2mel.py --wav-files "$TESTLIST" --mel-files "$TESTLIST_MEL"
