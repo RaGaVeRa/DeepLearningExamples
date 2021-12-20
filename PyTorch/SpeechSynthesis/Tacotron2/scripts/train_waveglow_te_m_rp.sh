@@ -20,5 +20,5 @@ python -m multiproc train.py -m WaveGlow -o ./${OUTPUT_FOLDER}/ -lr 1e-4 --epoch
 # -lr 1e-5
 # --grad-clip-thresh 3.4028234663852886e+38 
 # --epochs-per-checkpoint 10
-Resume training from last checkpoint
+# Resume training from last checkpoint
 # --resume-from-last
