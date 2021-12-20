@@ -4,7 +4,7 @@ export NVLOGFILE=nvlog_tacotron2_transferlearn_te_m_rp.json
 export TZ=Asia/Calcutta
 export TIME_YTD=$(date "+%Y_%m_%d_%H_%M")
 
-mkdir ${OUTPUT_FOLDER}
+mkdir -p ${OUTPUT_FOLDER}
 if [[ -f ${OUTPUT_FOLDER}/${NVLOGFILE} ]]
 then
 	mv ${OUTPUT_FOLDER}/${NVLOGFILE} ${OUTPUT_FOLDER}/${NVLOGFILE}_${TIME_YTD}
