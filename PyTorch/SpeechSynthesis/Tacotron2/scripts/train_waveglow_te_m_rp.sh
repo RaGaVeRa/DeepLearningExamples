@@ -13,7 +13,7 @@ fi
 FILELISTSDIR="te_m_rp/filelists"
 TRAIN_FILELIST="$FILELISTSDIR/te_m_rp_audio_text_train_filelist.txt"
 VAL_FILELIST="$FILELISTSDIR/te_m_rp_audio_text_val_filelist.txt"
-PRETRAINED_WAVEGLOW_CHECKPOINT=checkpoints/sg-kan-waveglow/1/checkpoint_WaveGlow_14350.pt
+PRETRAINED_WAVEGLOW_CHECKPOINT=checkpoints/checkpoint_WaveGlow_14350.pt
 
 # Start training from a pre-trained model
 python -m multiproc train.py -m WaveGlow -o ./${OUTPUT_FOLDER}/ -lr 1e-4 --epochs 15500 -bs 10 --segment-length 16000 --weight-decay 0 --grad-clip-thresh 65504.0 --cudnn-enabled --cudnn-benchmark --log-file ${NVLOGFILE} --training-files ${TRAIN_FILELIST} --validation-files ${VAL_FILELIST} --wn-channels 256 --amp --epochs-per-checkpoint 25 --checkpoint-path ${PRETRAINED_WAVEGLOW_CHECKPOINT}
