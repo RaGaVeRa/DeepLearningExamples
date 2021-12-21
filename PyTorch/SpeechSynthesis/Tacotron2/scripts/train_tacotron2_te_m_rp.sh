@@ -1,4 +1,4 @@
-export OUTPUT_FOLDER=./te_m_rp/output/tacotron2_transferlearn
+export OUTPUT_FOLDER=./output/te_m_rp/tacotron2_transferlearn
 export NVLOGFILE=nvlog_tacotron2_transferlearn_te_m_rp.json
 
 export TZ=Asia/Calcutta
@@ -26,5 +26,5 @@ PRETRAINED_TACOTRON2_CHECKPOINT=checkpoints/tacotron2_1032590_6000_amp
 #python -m multiproc train.py -m Tacotron2 -o ${OUTPUT_FOLDER} -lr 1e-3 --epochs 7701  -bs 32 --weight-decay 1e-6 --grad-clip-thresh 1.0 --cudnn-enabled --training-files ${TRAIN_FILELIST} --validation-files ${VAL_FILELIST} --log-file ${NVLOGFILE} --anneal-steps 6700 7200 7700 --anneal-factor 0.1 --text-cleaners basic_cleaners  --epochs-per-checkpoint 25 --resume-from-last
 #python -m multiproc train.py -m Tacotron2 -o ${OUTPUT_FOLDER} -lr 1e-3 --epochs 7701   -bs 8 --weight-decay 1e-6 --grad-clip-thresh 1.0 --cudnn-enabled --training-files ${TRAIN_FILELIST} --validation-files ${VAL_FILELIST} --log-file ${NVLOGFILE} --anneal-steps 6700 7200 7700 --anneal-factor 0.1 --text-cleaners basic_cleaners  --epochs-per-checkpoint 10
 
-python -m multiproc train.py -m Tacotron2 -o ${OUTPUT_FOLDER}/ -lr 1e-3 --epochs 7501 -bs 24 --weight-decay 1e-6 --grad-clip-thresh 1.0 --cudnn-enabled --training-files ${TRAIN_FILELIST} --validation-files ${VAL_FILELIST} --log-file ${NVLOGFILE} --anneal-steps 6500 7000 7500 --anneal-factor 0.1 --text-cleaners basic_cleaners --checkpoint-path ${PRETRAINED_TACOTRON2_CHECKPOINT} --drop-text-embedding-weights --epochs-per-checkpoint 10
-#python -m multiproc train.py -m Tacotron2 -o ${OUTPUT_FOLDER}/ -lr 1e-3 --epochs 7501 -bs 24 --weight-decay 1e-6 --grad-clip-thresh 1.0 --cudnn-enabled --training-files ${TRAIN_FILELIST} --validation-files ${VAL_FILELIST} --log-file ${NVLOGFILE} --anneal-steps 7000 7500 8000 --anneal-factor 0.1 --text-cleaners basic_cleaners --epochs-per-checkpoint 10 --resume-from-last
+#python -m multiproc train.py -m Tacotron2 -o ${OUTPUT_FOLDER}/ -lr 1e-3 --epochs 7501 -bs 24 --weight-decay 1e-6 --grad-clip-thresh 1.0 --cudnn-enabled --training-files ${TRAIN_FILELIST} --validation-files ${VAL_FILELIST} --log-file ${NVLOGFILE} --anneal-steps 6500 7000 7500 --anneal-factor 0.1 --text-cleaners basic_cleaners --checkpoint-path ${PRETRAINED_TACOTRON2_CHECKPOINT} --drop-text-embedding-weights --epochs-per-checkpoint 10
+python -m multiproc train.py -m Tacotron2 -o ${OUTPUT_FOLDER}/ -lr 1e-3 --epochs 7501 -bs 24 --weight-decay 1e-6 --grad-clip-thresh 1.0 --cudnn-enabled --training-files ${TRAIN_FILELIST} --validation-files ${VAL_FILELIST} --log-file ${NVLOGFILE} --anneal-steps 7000 7500 8000 --anneal-factor 0.1 --text-cleaners basic_cleaners --epochs-per-checkpoint 10 --resume-from-last
