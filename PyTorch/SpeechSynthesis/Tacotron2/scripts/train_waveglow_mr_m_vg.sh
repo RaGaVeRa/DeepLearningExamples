@@ -1,2 +1,2 @@
-DATASET_NAME=te_m_rp
+DATASET_NAME=mr_m_vg
 . ./scripts/train_waveglow_base.sh
