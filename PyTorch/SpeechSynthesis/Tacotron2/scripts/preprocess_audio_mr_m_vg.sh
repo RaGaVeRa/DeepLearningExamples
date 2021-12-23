@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-DATASET_NAME=te_m_rp
+DATASET_NAME=mr_m_vg
 FILELISTSDIR="${DATASET_NAME}/filelists"
 
 TRAINLIST="$FILELISTSDIR/${DATASET_NAME}_audio_text_train_filelist.txt"
