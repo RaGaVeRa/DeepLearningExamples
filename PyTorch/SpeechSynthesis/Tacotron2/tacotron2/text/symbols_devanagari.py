@@ -10,7 +10,7 @@ _pad        = '_'
 _punctuation = ',.!?\'(): '
 _eos        = ';'
 _special = '-'
-_letters = 'ँंःािीुूृेैोौॅॉ्अआइईउऊऋएऐओऔॲऑकखगघङचछजझञटठडढणतथदधनपफबभमयरलळवशषसहऽॐ।॥'
+_letters = 'ऀँंः़ािीुूृॄॢॣॅॆेैॉॊोौ्ऺऻॏ॒॑ॖॗॕऄअआइईउऊऋॠऌॡऍऎएऐऑऒओऔकखगघङचछजझञटठडढणतथदधनऩपफबभमयरऱलळऴवशषसहऽॐक़ख़ग़ज़ड़ढ़फ़य़।॥ॲॳॴॵॶॷॸॹॺॻॼॽॾॿ'
 
 # Prepend "@" to ARPAbet symbols to ensure uniqueness (some are the same as uppercase letters):
 _arpabet = ['@' + s for s in cmudict.valid_symbols]
