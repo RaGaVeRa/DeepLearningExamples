@@ -1,4 +1,4 @@
-OUT_DIR=./output/${DATASET_NAME}/${DATASET_NAME}-infer-tacotron2-waveglow/tacotron2_${TACOTRON2_CHECKPOINT_NUMBER}-waveglow_${WAVEGLOW_CHECKPOINT_NUMBER}
+OUT_DIR=./output/${DATASET_NAME}/${INFER_DIR}/tacotron2_${TACOTRON2_CHECKPOINT_NUMBER}-waveglow_${WAVEGLOW_CHECKPOINT_NUMBER}
 TACOTRON2_CHECKPOINT=./output/${DATASET_NAME}/tacotron2_transferlearn/checkpoint_Tacotron2_${TACOTRON2_CHECKPOINT_NUMBER}.pt
 WAVEGLOW_CHECKPOINT=./output/${DATASET_NAME}/waveglow_transferlearn/checkpoint_WaveGlow_${WAVEGLOW_CHECKPOINT_NUMBER}.pt
 INPUT_PHRASES=infer/${DATASET_NAME}_phrases.txt
