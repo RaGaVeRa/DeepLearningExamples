@@ -679,6 +679,8 @@ More information on how to download a biomedical corpus and pre-train as well as
 
 ## Performance
 
+The performance measurements in this document were conducted at the time of publication and may not reflect the performance achieved from NVIDIA’s latest software release. For the most up-to-date performance measurements, go to [NVIDIA Data Center Deep Learning Product Performance](https://developer.nvidia.com/deep-learning-performance-training-inference).
+
 ### Benchmarking
 
 The following section shows how to run benchmarks measuring the model performance in training and inference modes.
@@ -1090,7 +1092,7 @@ Our results were obtained by running the `scripts/finetune_inference_benchmark.s
 
 ###### Fine-tuning inference performance for SQuAD v1.1 on DGX A100  40GB
 
-Our results were obtained by running the `scripts/finetune_inference_benchmark.sh` training script in the TensorFlow 20.06-py3 NGC container on NVIDIA DGX A100 with 1x V100 40GB GPUs. Performance numbers (throughput in sentences per second and latency in milliseconds) were averaged from 1024 iterations. Latency is computed as the time taken for a batch to process as they are fed in one after another in the model ie no pipelining.
+Our results were obtained by running the `scripts/finetune_inference_benchmark.sh` training script in the TensorFlow 20.06-py3 NGC container on NVIDIA DGX A100 with 1x A100 40GB GPUs. Performance numbers (throughput in sentences per second and latency in milliseconds) were averaged from 1024 iterations. Latency is computed as the time taken for a batch to process as they are fed in one after another in the model ie no pipelining.
 
 | Model | Sequence Length | Batch Size | Precision | Throughput-Average(sent/sec) | Latency-Average(ms) | Latency-90%(ms) | Latency-95%(ms) | Latency-99%(ms) |
 |-------|-----------------|------------|-----------|------------------------------|---------------------|-----------------|-----------------|-----------------|

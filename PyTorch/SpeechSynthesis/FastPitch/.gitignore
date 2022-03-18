@@ -3,7 +3,7 @@ LJSpeech-1.1/
 output*
 scripts_joc/
 tests/
-
+pretrained_models/
 *.pyc
 __pycache__
 

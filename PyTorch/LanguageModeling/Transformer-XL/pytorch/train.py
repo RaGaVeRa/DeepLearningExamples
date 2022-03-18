@@ -111,6 +111,13 @@ def parse_args():
                          help='Optimization level for apex amp')
     general.add_argument('--amp', choices=['apex', 'pytorch'], default='apex',
                          help='Implementation of automatic mixed precision')
+    general.add_argument('--affinity', type=str,
+                         default='socket_unique_interleaved',
+                         choices=['socket', 'single', 'single_unique',
+                                  'socket_unique_interleaved',
+                                  'socket_unique_continuous',
+                                  'disabled'],
+                         help='type of CPU affinity')
 
     dataset = parser.add_argument_group('dataset setup')
     dataset.add_argument('--data', type=str, default='../data/wikitext-103',
@@ -256,8 +263,28 @@ def parse_args():
     if args.ext_len < 0:
         raise RuntimeError('Extended context length must be non-negative')
 
+    if args.mem_len == 0:
+        if args.eval_tgt_len > args.ext_len + args.tgt_len:
+            raise RuntimeError('eval_tgt_len should be <= tgt_len + ext_len; '
+                               f'eval_tgt_len: {args.eval_tgt_len}, '
+                               f'tgt_len: {args.tgt_len}, '
+                               f'ext_len: {args.ext_len}')
+    else:
+        if args.eval_tgt_len > args.mem_len + args.tgt_len:
+            raise RuntimeError('eval_tgt_len should be <= tgt_len + mem_len; '
+                               f'eval_tgt_len: {args.eval_tgt_len}, '
+                               f'tgt_len: {args.tgt_len}, '
+                               f'mem_len: {args.mem_len}')
+
     if args.batch_size % args.batch_chunk != 0:
         raise RuntimeError('Batch size needs to be divisible by batch chunk')
+
+    if (
+        args.local_batch_size is not None
+        and args.local_batch_size % args.batch_chunk != 0
+    ):
+        raise RuntimeError('Local batch size needs to be divisible by '
+                           'batch chunk')
 
     if args.fp16 and args.amp == 'apex' and 'apex' not in sys.modules:
         raise RuntimeError(
@@ -418,10 +445,12 @@ def evaluate(eval_iter, model, args):
         for i, (data, target, seq_len, warm) in enumerate(eval_iter):
             if args.eval_max_steps > 0 and i >= args.eval_max_steps:
                 break
-            loss, mems = model(data, target, mems)
-            loss = loss.float().mean()
+            enable_autocast = args.fp16 and args.amp == 'pytorch'
+            with torch.cuda.amp.autocast(enable_autocast):
+                loss, mems = model(data, target, mems)
+                loss = loss.float().mean().type_as(loss)
             if warm:
-                assert (mems is None) or mems.size(1) == model.mem_len
+                # assert (mems is None) or mems.size(1) == model.mem_len
                 total_loss += seq_len * loss.item()
                 total_len += seq_len
 
@@ -659,7 +688,14 @@ def train(tr_iter, va_iter, model, para_model, model_config, optimizer,
 
 def main():
     args = parse_args()
-    utils.gpu_affinity.set_affinity(args.local_rank)
+    if args.affinity != 'disabled':
+        nproc_per_node = torch.cuda.device_count()
+        affinity = utils.gpu_affinity.set_affinity(
+            args.local_rank,
+            nproc_per_node,
+            args.affinity
+        )
+        print(f'{args.local_rank}: thread affinity: {affinity}')
 
     # Initialize device and distributed backend
     torch.cuda.set_device(args.local_rank)
@@ -702,6 +738,9 @@ def main():
         args.batch_size = world_size * args.local_batch_size
         logging.info(f'--local_batch_size was set, adjusting global batch size'
                      f' to {args.batch_size} (local_batch_size * world_size)')
+        if args.batch_size % args.batch_chunk != 0:
+            raise RuntimeError('Batch size needs to be divisible by '
+                               'batch chunk')
 
     logging.info(args)
     dllogger.log(step='PARAMETER', data=vars(args))

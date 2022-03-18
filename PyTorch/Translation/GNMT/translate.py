@@ -21,10 +21,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os
+
+os.environ['KMP_AFFINITY'] = 'disabled'
+
 import argparse
 import itertools
 import logging
-import os
 import sys
 import warnings
 from itertools import product
@@ -33,6 +36,7 @@ import dllogger
 import numpy as np
 import torch
 
+import seq2seq.gpu_affinity as gpu_affinity
 import seq2seq.utils as utils
 from seq2seq.data.dataset import RawTextDataset
 from seq2seq.data.dataset import SyntheticDataset
@@ -136,6 +140,13 @@ def parse_args():
                          help='Name of the DLLogger output file')
     general.add_argument('--print-freq', '-p', default=1, type=int,
                          help='print log every PRINT_FREQ batches')
+    general.add_argument('--affinity', type=str,
+                         default='single_unique',
+                         choices=['socket', 'single', 'single_unique',
+                                  'socket_unique_interleaved',
+                                  'socket_unique_continuous',
+                                  'disabled'],
+                         help='type of CPU affinity')
 
     # benchmarking
     benchmark = parser.add_argument_group('benchmark setup')
@@ -194,6 +205,14 @@ def main():
     with length normalization and coverage penalty.
     """
     args = parse_args()
+    if args.affinity != 'disabled':
+        nproc_per_node = torch.cuda.device_count()
+        affinity = gpu_affinity.set_affinity(
+            args.local_rank,
+            nproc_per_node,
+            args.affinity
+        )
+        print(f'{args.local_rank}: thread affinity: {affinity}')
     device = utils.set_device(args.cuda, args.local_rank)
     utils.init_distributed(args.cuda)
     args.rank = utils.get_rank()
@@ -341,7 +360,7 @@ def main():
         'eval_avg_latency': avg_latency,
         }
     for p in args.percentiles:
-        summary[f'eval_{p}%_latency'] = 1000 * np.percentile(stats['runtimes'], p)
+        summary[f'eval_{p}%_latency'] = np.percentile(stats['runtimes'], p)
 
     dllogger.log(step=tuple(), data=summary)
 

@@ -64,7 +64,7 @@ class STFT(torch.nn.Module):
             assert(filter_length >= win_length)
             # get window and zero center pad it to filter_length
             fft_window = get_window(window, win_length, fftbins=True)
-            fft_window = pad_center(fft_window, filter_length)
+            fft_window = pad_center(fft_window, size=filter_length)
             fft_window = torch.from_numpy(fft_window).float()
 
             # window the bases
@@ -109,11 +109,9 @@ class STFT(torch.nn.Module):
             [magnitude*torch.cos(phase), magnitude*torch.sin(phase)], dim=1)
 
         with torch.no_grad():
-            inverse_transform = F.conv_transpose2d(
-                recombine_magnitude_phase.unsqueeze(-1),
-                self.inverse_basis.unsqueeze(-1),
-                stride=self.hop_length,
-                padding=0).squeeze(-1)
+            inverse_transform = F.conv_transpose1d(
+                recombine_magnitude_phase, self.inverse_basis,
+                stride=self.hop_length, padding=0)
 
         if self.window is not None:
             window_sum = window_sumsquare(
