@@ -265,7 +265,8 @@ def load_checkpoint(model, optimizer, scaler, epoch, filepath, local_rank, drop_
     model.load_state_dict(state_dict)
     if drop_text_embedding_weights == False:
         optimizer.load_state_dict(checkpoint['optimizer'])
-    scaler.load_state_dict(checkpoint['scaler'])
+    if 'scaler' in checkpoint:
+        scaler.load_state_dict(checkpoint['scaler'])
     return checkpoint['config']
 
 
