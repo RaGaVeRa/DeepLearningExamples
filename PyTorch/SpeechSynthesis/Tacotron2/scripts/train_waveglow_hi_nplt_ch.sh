@@ -12,12 +12,12 @@ then
 fi
 
 FILELISTSDIR="${DATASET_NAME}/filelists"
-TRAIN_FILELIST="$FILELISTSDIR/audio_text_train.txt"
-VAL_FILELIST="$FILELISTSDIR/audio_text_val.txt"
+TRAIN_FILELIST="$FILELISTSDIR/audio_text_train2.txt"
+VAL_FILELIST="$FILELISTSDIR/audio_text_val2.txt"
 PRETRAINED_WAVEGLOW_CHECKPOINT=checkpoints/waveglow_1076430_14000_amp
 
 # Start training from a pre-trained model
-python -m multiproc train.py -m WaveGlow -o ./${OUTPUT_FOLDER}/ -lr 1e-4 --epochs 15500 -bs 10 --segment-length 16000 --weight-decay 0 --grad-clip-thresh 65504.0 --cudnn-enabled --cudnn-benchmark --log-file ${NVLOGFILE} --training-files ${TRAIN_FILELIST} --validation-files ${VAL_FILELIST} --wn-channels 256 --amp --epochs-per-checkpoint 10 --checkpoint-path ${PRETRAINED_WAVEGLOW_CHECKPOINT}
+python -m multiproc train.py -m WaveGlow -o ./${OUTPUT_FOLDER}/ -lr 1e-4 --epochs 15500 -bs 10 --segment-length 16000 --weight-decay 0 --grad-clip-thresh 65504.0 --cudnn-enabled --cudnn-benchmark --log-file ${NVLOGFILE} --dataset-path ${DATASET_NAME} --training-files ${TRAIN_FILELIST} --validation-files ${VAL_FILELIST} --wn-channels 256 --amp --epochs-per-checkpoint 10 --checkpoint-path ${PRETRAINED_WAVEGLOW_CHECKPOINT}
 # -lr 1e-5
 # --grad-clip-thresh 3.4028234663852886e+38 
 # --epochs-per-checkpoint 25
