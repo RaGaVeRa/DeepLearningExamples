@@ -27,28 +27,21 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import argparse
 import os
-import shutil
-import time
-import random
-import signal
 
-import numpy as np
-import torch
-from torch.autograd import Variable
-import torch.nn as nn
-import torch.nn.parallel
+os.environ["KMP_AFFINITY"] = "disabled" # We need to do this before importing anything else as a workaround for this bug: https://github.com/pytorch/pytorch/issues/28389
+
+import argparse
+import random
+from copy import deepcopy
+
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
+import torch.nn.parallel
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-from torch.nn.parallel import DistributedDataParallel as DDP
 
-import image_classification.resnet as models
 import image_classification.logger as log
 
 from image_classification.smoothing import LabelSmoothing
@@ -56,14 +49,42 @@ from image_classification.mixup import NLLMultiLabelSmooth, MixUpWrapper
 from image_classification.dataloaders import *
 from image_classification.training import *
 from image_classification.utils import *
-
+from image_classification.models import (
+    resnet50,
+    resnext101_32x4d,
+    se_resnext101_32x4d,
+    efficientnet_b0,
+    efficientnet_b4,
+    efficientnet_widese_b0,
+    efficientnet_widese_b4,
+)
+from image_classification.optimizers import (
+    get_optimizer,
+    lr_cosine_policy,
+    lr_linear_policy,
+    lr_step_policy,
+)
+from image_classification.gpu_affinity import set_affinity, AffinityMode
 import dllogger
 
 
-def add_parser_arguments(parser):
-    model_names = models.resnet_versions.keys()
-    model_configs = models.resnet_configs.keys()
+def available_models():
+    models = {
+        m.name: m
+        for m in [
+            resnet50,
+            resnext101_32x4d,
+            se_resnext101_32x4d,
+            efficientnet_b0,
+            efficientnet_b4,
+            efficientnet_widese_b0,
+            efficientnet_widese_b4,
+        ]
+    }
+    return models
 
+
+def add_parser_arguments(parser, skip_arch=False):
     parser.add_argument("data", metavar="DIR", help="path to dataset")
     parser.add_argument(
         "--data-backend",
@@ -74,32 +95,24 @@ def add_parser_arguments(parser):
         + " | ".join(DATA_BACKEND_CHOICES)
         + " (default: dali-cpu)",
     )
-
     parser.add_argument(
-        "--arch",
-        "-a",
-        metavar="ARCH",
-        default="resnet50",
-        choices=model_names,
-        help="model architecture: " + " | ".join(model_names) + " (default: resnet50)",
+        "--interpolation",
+        metavar="INTERPOLATION",
+        default="bilinear",
+        help="interpolation type for resizing images: bilinear, bicubic or triangular(DALI only)",
     )
-
-    parser.add_argument(
-        "--model-config",
-        "-c",
-        metavar="CONF",
-        default="classic",
-        choices=model_configs,
-        help="model configs: " + " | ".join(model_configs) + "(default: classic)",
-    )
-
-    parser.add_argument(
-        "--num-classes",
-        metavar="N",
-        default=1000,
-        type=int,
-        help="number of classes in the dataset",
-    )
+    if not skip_arch:
+        model_names = available_models().keys()
+        parser.add_argument(
+            "--arch",
+            "-a",
+            metavar="ARCH",
+            default="resnet50",
+            choices=model_names,
+            help="model architecture: "
+            + " | ".join(model_names)
+            + " (default: resnet50)",
+        )
 
     parser.add_argument(
         "-j",
@@ -108,6 +121,13 @@ def add_parser_arguments(parser):
         type=int,
         metavar="N",
         help="number of data loading workers (default: 5)",
+    )
+    parser.add_argument(
+        "--prefetch",
+        default=2,
+        type=int,
+        metavar="N",
+        help="number of samples prefetched by each loader",
     )
     parser.add_argument(
         "--epochs",
@@ -122,6 +142,16 @@ def add_parser_arguments(parser):
         type=int,
         metavar="N",
         help="run only N epochs, used for checkpointing runs",
+    )
+    parser.add_argument(
+        "--early-stopping-patience",
+        default=-1,
+        type=int,
+        metavar="N",
+        help="early stopping after N epochs without validation accuracy improving",
+    )
+    parser.add_argument(
+        "--image-size", default=None, type=int, help="resolution of image"
     )
     parser.add_argument(
         "-b",
@@ -157,6 +187,8 @@ def add_parser_arguments(parser):
         help="Type of LR schedule: {}, {}, {}".format("step", "linear", "cosine"),
     )
 
+    parser.add_argument("--end-lr", default=0, type=float)
+
     parser.add_argument(
         "--warmup", default=0, type=int, metavar="E", help="number of warmup epochs"
     )
@@ -170,6 +202,9 @@ def add_parser_arguments(parser):
     )
     parser.add_argument(
         "--mixup", default=0.0, type=float, metavar="ALPHA", help="mixup alpha"
+    )
+    parser.add_argument(
+        "--optimizer", default="sgd", type=str, choices=("sgd", "rmsprop")
     )
 
     parser.add_argument(
@@ -188,6 +223,19 @@ def add_parser_arguments(parser):
         action="store_true",
         help="use weight_decay on batch normalization learnable parameters, (default: false)",
     )
+    parser.add_argument(
+        "--rmsprop-alpha",
+        default=0.9,
+        type=float,
+        help="value of alpha parameter in rmsprop optimizer (default: 0.9)",
+    )
+    parser.add_argument(
+        "--rmsprop-eps",
+        default=1e-3,
+        type=float,
+        help="value of eps parameter in rmsprop optimizer (default: 1e-3)",
+    )
+
     parser.add_argument(
         "--nesterov",
         action="store_true",
@@ -209,14 +257,6 @@ def add_parser_arguments(parser):
         metavar="PATH",
         help="path to latest checkpoint (default: none)",
     )
-    parser.add_argument(
-        "--pretrained-weights",
-        default="",
-        type=str,
-        metavar="PATH",
-        help="load weights from here",
-    )
-
     parser.add_argument(
         "--static-loss-scale",
         type=float,
@@ -266,6 +306,13 @@ def add_parser_arguments(parser):
         dest="save_checkpoints",
         help="do not store any checkpoints, useful for benchmarking",
     )
+    parser.add_argument(
+        "--jit",
+        type=str,
+        default="no",
+        choices=["no", "script"],
+        help="no -> do not use torch.jit; script -> use torch.jit.script",
+    )
 
     parser.add_argument("--checkpoint-filename", default="checkpoint.pth.tar", type=str)
 
@@ -283,17 +330,38 @@ def add_parser_arguments(parser):
         choices=["nchw", "nhwc"],
         help="memory layout, nchw or nhwc",
     )
+    parser.add_argument("--use-ema", default=None, type=float, help="use EMA")
+    parser.add_argument(
+        "--augmentation",
+        type=str,
+        default=None,
+        choices=[None, "autoaugment"],
+        help="augmentation method",
+    )
+    parser.add_argument(
+        "--num-classes",
+        type=int,
+        default=None,
+        required=False,
+        help="number of classes",
+    )
+
+    parser.add_argument(
+        "--gpu-affinity",
+        type=str,
+        default="none",
+        required=False,
+        choices=[am.name for am in AffinityMode],
+    )
 
 
-def main(args):
-    exp_start_time = time.time()
-    global best_prec1
-    best_prec1 = 0
-
+def prepare_for_training(args, model_args, model_arch):
     args.distributed = False
     if "WORLD_SIZE" in os.environ:
         args.distributed = int(os.environ["WORLD_SIZE"]) > 1
         args.local_rank = int(os.environ["LOCAL_RANK"])
+    else:
+        args.local_rank = 0
 
     args.gpu = 0
     args.world_size = 1
@@ -304,6 +372,9 @@ def main(args):
         dist.init_process_group(backend="nccl", init_method="env://")
         args.world_size = torch.distributed.get_world_size()
 
+    affinity = set_affinity(args.gpu, mode=args.gpu_affinity)
+    print(f"Training process {args.local_rank} affinity: {affinity}")
+
     if args.seed is not None:
         print("Using seed = {}".format(args.seed))
         torch.manual_seed(args.seed + args.local_rank)
@@ -312,10 +383,9 @@ def main(args):
         random.seed(args.seed + args.local_rank)
 
         def _worker_init_fn(id):
-            def handler(signum, frame):
-                print(f"Worker {id} received signal {signum}")
-
-            signal.signal(signal.SIGTERM, handler)
+            # Worker process should inherit its affinity from parent
+            affinity = os.sched_getaffinity(0) 
+            print(f"Process {args.local_rank} Worker {id} set affinity to: {affinity}")
 
             np.random.seed(seed=args.seed + args.local_rank + id)
             random.seed(args.seed + args.local_rank + id)
@@ -323,10 +393,9 @@ def main(args):
     else:
 
         def _worker_init_fn(id):
-            def handler(signum, frame):
-                print(f"Worker {id} received signal {signum}")
-
-            signal.signal(signal.SIGTERM, handler)
+            # Worker process should inherit its affinity from parent
+            affinity = os.sched_getaffinity(0)
+            print(f"Process {args.local_rank} Worker {id} set affinity to: {affinity}")
 
     if args.static_loss_scale != 1.0:
         if not args.amp:
@@ -345,22 +414,6 @@ def main(args):
         batch_size_multiplier = int(args.optimizer_batch_size / tbs)
         print("BSM: {}".format(batch_size_multiplier))
 
-    pretrained_weights = None
-    if args.pretrained_weights:
-        if os.path.isfile(args.pretrained_weights):
-            print(
-                "=> loading pretrained weights from '{}'".format(
-                    args.pretrained_weights
-                )
-            )
-            pretrained_weights = torch.load(args.pretrained_weights)
-            # Temporary fix to allow NGC checkpoint loading
-            pretrained_weights = {
-                k.replace("module.", ""): v for k, v in pretrained_weights.items()
-            }
-        else:
-            print("=> no pretrained weights found at '{}'".format(args.resume))
-
     start_epoch = 0
     # optionally resume from a checkpoint
     if args.resume is not None:
@@ -373,6 +426,8 @@ def main(args):
             best_prec1 = checkpoint["best_prec1"]
             model_state = checkpoint["state_dict"]
             optimizer_state = checkpoint["optimizer"]
+            if "state_dict_ema" in checkpoint:
+                model_state_ema = checkpoint["state_dict_ema"]
             print(
                 "=> loaded checkpoint '{}' (epoch {})".format(
                     args.resume, checkpoint["epoch"]
@@ -386,9 +441,11 @@ def main(args):
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
             model_state = None
+            model_state_ema = None
             optimizer_state = None
     else:
         model_state = None
+        model_state_ema = None
         optimizer_state = None
 
     loss = nn.CrossEntropyLoss
@@ -400,13 +457,38 @@ def main(args):
     memory_format = (
         torch.channels_last if args.memory_format == "nhwc" else torch.contiguous_format
     )
+    model = model_arch(
+        **{
+            k: v
+            if k != "pretrained"
+            else v and (not args.distributed or dist.get_rank() == 0)
+            for k, v in model_args.__dict__.items()
+        }
+    )
 
-    model_and_loss = ModelAndLoss(
-        (args.arch, args.model_config, args.num_classes),
-        loss,
-        pretrained_weights=pretrained_weights,
+    image_size = (
+        args.image_size
+        if args.image_size is not None
+        else model.arch.default_image_size
+    )
+
+    scaler = torch.cuda.amp.GradScaler(
+        init_scale=args.static_loss_scale,
+        growth_factor=2,
+        backoff_factor=0.5,
+        growth_interval=100 if args.dynamic_loss_scale else 1000000000,
+        enabled=args.amp,
+    )
+
+    executor = Executor(
+        model,
+        loss(),
         cuda=True,
         memory_format=memory_format,
+        amp=args.amp,
+        scaler=scaler,
+        divide_loss=batch_size_multiplier,
+        ts_script=args.jit == "script",
     )
 
     # Create data loaders and optimizers as needed
@@ -428,23 +510,32 @@ def main(args):
 
     train_loader, train_loader_len = get_train_loader(
         args.data,
+        image_size,
         args.batch_size,
-        args.num_classes,
+        model_args.num_classes,
         args.mixup > 0.0,
+        interpolation=args.interpolation,
+        augmentation=args.augmentation,
         start_epoch=start_epoch,
         workers=args.workers,
+        _worker_init_fn=_worker_init_fn,
         memory_format=memory_format,
+        prefetch_factor=args.prefetch,
     )
     if args.mixup != 0.0:
         train_loader = MixUpWrapper(args.mixup, train_loader)
 
     val_loader, val_loader_len = get_val_loader(
         args.data,
+        image_size,
         args.batch_size,
-        args.num_classes,
+        model_args.num_classes,
         False,
+        interpolation=args.interpolation,
         workers=args.workers,
+        _worker_init_fn=_worker_init_fn,
         memory_format=memory_format,
+        prefetch_factor=args.prefetch,
     )
 
     if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
@@ -466,54 +557,82 @@ def main(args):
         logger = log.Logger(args.print_freq, [], start_epoch=start_epoch - 1)
 
     logger.log_parameter(args.__dict__, verbosity=dllogger.Verbosity.DEFAULT)
+    logger.log_parameter(
+        {f"model.{k}": v for k, v in model_args.__dict__.items()},
+        verbosity=dllogger.Verbosity.DEFAULT,
+    )
 
     optimizer = get_optimizer(
-        list(model_and_loss.model.named_parameters()),
+        list(executor.model.named_parameters()),
         args.lr,
-        args.momentum,
-        args.weight_decay,
-        nesterov=args.nesterov,
-        bn_weight_decay=args.bn_weight_decay,
+        args=args,
         state=optimizer_state,
     )
 
     if args.lr_schedule == "step":
-        lr_policy = lr_step_policy(
-            args.lr, [30, 60, 80], 0.1, args.warmup, logger=logger
-        )
+        lr_policy = lr_step_policy(args.lr, [30, 60, 80], 0.1, args.warmup)
     elif args.lr_schedule == "cosine":
-        lr_policy = lr_cosine_policy(args.lr, args.warmup, args.epochs, logger=logger)
+        lr_policy = lr_cosine_policy(
+            args.lr, args.warmup, args.epochs, end_lr=args.end_lr
+        )
     elif args.lr_schedule == "linear":
-        lr_policy = lr_linear_policy(args.lr, args.warmup, args.epochs, logger=logger)
-
-    scaler = torch.cuda.amp.GradScaler(
-        init_scale=args.static_loss_scale,
-        growth_factor=2,
-        backoff_factor=0.5,
-        growth_interval=100 if args.dynamic_loss_scale else 1000000000,
-        enabled=args.amp,
-    )
+        lr_policy = lr_linear_policy(args.lr, args.warmup, args.epochs)
 
     if args.distributed:
-        model_and_loss.distributed(args.gpu)
+        executor.distributed(args.gpu)
 
-    model_and_loss.load_model_state(model_state)
+    if model_state is not None:
+        executor.model.load_state_dict(model_state)
 
-    train_loop(
-        model_and_loss,
+    trainer = Trainer(
+        executor,
         optimizer,
-        scaler,
+        grad_acc_steps=batch_size_multiplier,
+        ema=args.use_ema,
+    )
+
+    if (args.use_ema is not None) and (model_state_ema is not None):
+        trainer.ema_executor.model.load_state_dict(model_state_ema)
+
+    return (
+        trainer,
         lr_policy,
         train_loader,
+        train_loader_len,
+        val_loader,
+        logger,
+        start_epoch,
+    )
+
+
+def main(args, model_args, model_arch):
+    exp_start_time = time.time()
+    global best_prec1
+    best_prec1 = 0
+
+    (
+        trainer,
+        lr_policy,
+        train_loader,
+        train_loader_len,
+        val_loader,
+        logger,
+        start_epoch,
+    ) = prepare_for_training(args, model_args, model_arch)
+
+    train_loop(
+        trainer,
+        lr_policy,
+        train_loader,
+        train_loader_len,
         val_loader,
         logger,
         should_backup_checkpoint(args),
-        use_amp=args.amp,
-        batch_size_multiplier=batch_size_multiplier,
         start_epoch=start_epoch,
-        end_epoch=(start_epoch + args.run_epochs)
+        end_epoch=min((start_epoch + args.run_epochs), args.epochs)
         if args.run_epochs != -1
         else args.epochs,
+        early_stopping_patience=args.early_stopping_patience,
         best_prec1=best_prec1,
         prof=args.prof,
         skip_training=args.evaluate,
@@ -529,10 +648,28 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="PyTorch ImageNet Training")
+    epilog = [
+        "Based on the architecture picked by --arch flag, you may use the following options:\n"
+    ]
+    for model, ep in available_models().items():
+        model_help = "\n".join(ep.parser().format_help().split("\n")[2:])
+        epilog.append(model_help)
+    parser = argparse.ArgumentParser(
+        description="PyTorch ImageNet Training",
+        epilog="\n".join(epilog),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
     add_parser_arguments(parser)
-    args = parser.parse_args()
+
+    args, rest = parser.parse_known_args()
+
+    model_arch = available_models()[args.arch]
+    model_args, rest = model_arch.parser().parse_known_args(rest)
+    print(model_args)
+
+    assert len(rest) == 0, f"Unknown args passed: {rest}"
+
     cudnn.benchmark = True
 
-    main(args)
+    main(args, model_args, model_arch)

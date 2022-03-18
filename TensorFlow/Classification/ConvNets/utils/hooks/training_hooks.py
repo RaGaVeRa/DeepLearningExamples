@@ -21,6 +21,8 @@ import tensorflow as tf
 import dllogger
 import signal
 
+from utils import hvd_wrapper as hvd
+
 __all__ = ['TrainingLoggingHook', 'TrainingPartitionHook']
 
 
@@ -41,7 +43,7 @@ class MeanAccumulator:
             return 0
 
 
-class TrainingLoggingHook(tf.train.SessionRunHook):
+class TrainingLoggingHook(tf.estimator.SessionRunHook):
 
     def __init__(
         self, global_batch_size, num_steps, num_samples, num_epochs, steps_per_epoch, warmup_steps=20, logging_steps=1
@@ -110,19 +112,43 @@ class TrainingLoggingHook(tf.train.SessionRunHook):
             self.current_epoch += 1
 
 
-class TrainingPartitionHook(tf.train.SessionRunHook):
+class TrainingPartitionHook(tf.estimator.SessionRunHook):
 
-    def __init__(self):
+    def __init__(self, sync_freq=10):
         super().__init__()
-        self.should_exit = False
+        self.signal_recieved = False
+        self.sync_freq = sync_freq
+        self.global_step = 0
 
         signal.signal(signal.SIGUSR1, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
+    def begin(self):
+        if hvd.size() > 1:
+            with tf.device("/cpu:0"):
+                self.input_op = tf.placeholder(tf.int32, shape=())
+                self.allreduce_op = hvd.hvd_global_object.allreduce(
+                    self.input_op, op=hvd.hvd_global_object.Sum, name="signal_handler_all_reduce")
+
+    def before_run(self, run_context):
+        fetches = [tf.train.get_global_step()]
+        feed_dict = None
+
+        if hvd.size() > 1 and (self.global_step % self.sync_freq) == 0:
+            fetches += [self.allreduce_op]
+            feed_dict = {self.input_op: int(self.signal_recieved)}
+            
+        return tf.train.SessionRunArgs(fetches, feed_dict=feed_dict)
+
     def after_run(self, run_context, run_values):
-        if self.should_exit:
+        self.global_step = run_values.results[0] + 1
+
+        if hvd.size() > 1 and len(run_values.results) == 2:
+            if run_values.results[1] > 0:
+                run_context.request_stop()
+        elif self.signal_recieved:
             run_context.request_stop()
 
     def _signal_handler(self, signum, frame):
         print("Stop signal received")
-        self.should_exit = True
+        self.signal_recieved = True

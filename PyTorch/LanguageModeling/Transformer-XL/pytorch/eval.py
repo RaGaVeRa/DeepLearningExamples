@@ -20,6 +20,7 @@ import os
 import pickle
 import sys
 import time
+import warnings
 
 import dllogger
 import numpy as np
@@ -72,6 +73,13 @@ def parse_args():
     parser.add_argument('--split', type=str, default='all',
                         choices=['all', 'valid', 'test'],
                         help='which split to evaluate')
+    parser.add_argument('--affinity', type=str,
+                        default='single_unique',
+                        choices=['socket', 'single', 'single_unique',
+                                 'socket_unique_interleaved',
+                                 'socket_unique_continuous',
+                                 'disabled'],
+                        help='type of CPU affinity')
     parser.add_argument('--type', type=str, default='pytorch',
                         choices=['pytorch', 'torchscript'],
                         help='type of runtime to use')
@@ -134,7 +142,12 @@ def parse_args():
     if args.manual:
         args.batch_size = 1
 
-    assert args.ext_len >= 0, 'extended context length must be non-negative'
+    if args.same_length and args.tgt_len > args.mem_len:
+        warnings.warn('--same_length is intended to be used with large '
+                      'mem_len relative to tgt_len')
+
+    if args.ext_len < 0:
+        raise RuntimeError('Extended context length must be non-negative')
     return args
 
 
@@ -182,7 +195,6 @@ def evaluate(eval_iter, model, meters, log_interval, max_size=None, repeat=1):
                 loss = loss.float().mean()
                 log_loss += loss.item()
                 if warm:
-                    # assert all([m.size(0) == model.mem_len for m in mems])
                     total_loss += seq_len * loss.item()
                     total_len += seq_len
 
@@ -251,7 +263,14 @@ def compile_model(model, device, args):
 
 def main():
     args = parse_args()
-    utils.gpu_affinity.set_affinity(args.local_rank)
+    if args.affinity != 'disabled':
+        nproc_per_node = torch.cuda.device_count()
+        affinity = utils.gpu_affinity.set_affinity(
+            args.local_rank,
+            nproc_per_node,
+            args.affinity
+        )
+        print(f'{args.local_rank}: thread affinity: {affinity}')
 
     if args.type == 'pytorch':
         from mem_transformer import MemTransformerLM

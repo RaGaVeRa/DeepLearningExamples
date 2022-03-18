@@ -733,6 +733,8 @@ To run inference interactively on question-context pairs, use the script `run_in
  
  
 ## Performance
+
+The performance measurements in this document were conducted at the time of publication and may not reflect the performance achieved from NVIDIA’s latest software release. For the most up-to-date performance measurements, go to [NVIDIA Data Center Deep Learning Product Performance](https://developer.nvidia.com/deep-learning-performance-training-inference).
  
 ### Benchmarking
  
@@ -970,7 +972,7 @@ TF32
  
 ##### Inference performance: NVIDIA T4
  
-Our results were obtained by running the `scripts/benchmark_squad.sh` script in the tensorflow:20.07-tf2-py3 NGC container on NVIDIA DGX-1 with (1x V100 16G) GPUs. 
+Our results were obtained by running the `scripts/benchmark_squad.sh` script in the tensorflow:20.07-tf2-py3 NGC container on NVIDIA Tesla T4 (1x T4 16GB) GPU. 
  
 ###### Fine-tuning inference on NVIDIA T4
  

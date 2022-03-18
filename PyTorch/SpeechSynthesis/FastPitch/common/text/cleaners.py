@@ -13,12 +13,12 @@ hyperparameter. Some cleaners are English-specific. You'll typically want to use
 '''
 
 import re
-from unidecode import unidecode
-from .numerical import normalize_numbers
-from .acronyms import normalize_acronyms
+from .abbreviations import normalize_abbreviations
+from .acronyms import normalize_acronyms, spell_acronyms
 from .datestime import normalize_datestime
 from .letters_and_numbers import normalize_letters_and_numbers
-from .abbreviations import normalize_abbreviations
+from .numerical import normalize_numbers
+from .unidecoder import unidecoder
 
 
 # Regular expression matching whitespace:
@@ -60,7 +60,7 @@ def separate_acronyms(text):
 
 
 def convert_to_ascii(text):
-    return unidecode(text)
+    return unidecoder(text)
 
 
 def basic_cleaners(text):
@@ -78,10 +78,6 @@ def transliteration_cleaners(text):
     return text
 
 
-def english_cleaners_post_chars(word):
-    return word
-
-
 def english_cleaners(text):
     '''Pipeline for English text, with number and abbreviation expansion.'''
     text = convert_to_ascii(text)
@@ -89,6 +85,19 @@ def english_cleaners(text):
     text = expand_numbers(text)
     text = expand_abbreviations(text)
     text = collapse_whitespace(text)
+    return text
+
+def english_cleaners_v2(text):
+    text = convert_to_ascii(text)
+    text = expand_datestime(text)
+    text = expand_letters_and_numbers(text)
+    text = expand_numbers(text)
+    text = expand_abbreviations(text)
+    text = spell_acronyms(text)
+    text = lowercase(text)
+    text = collapse_whitespace(text)
+    # compatibility with basic_english symbol set
+    text = re.sub(r'/+', ' ', text)
     return text
 
 def hindi_cleaners(text):

@@ -373,6 +373,8 @@ but rather in an approximate fashion.
 
 ## Performance
 
+The performance measurements in this document were conducted at the time of publication and may not reflect the performance achieved from NVIDIA’s latest software release. For the most up-to-date performance measurements, go to [NVIDIA Data Center Deep Learning Product Performance](https://developer.nvidia.com/deep-learning-performance-training-inference).
+
 ### Benchmarking
 
 The following sections shows how to run benchmarks measuring the model performance in training and inference modes.
@@ -493,7 +495,7 @@ To achieve these same results, follow the steps in the [Quick Start Guide](#quic
 ##### Inference performance: NVIDIA DGX-1 (1x V100 16GB)
 
 Our results were obtained by running the scripts `./scripts/benchmarking/UNet_evalbench{_AMP}.sh`
-evaluation script in the `20.06-tf1-py3` NGC container on NVIDIA DGX-1 (8x V100 16GB) GPUs.
+evaluation script in the `20.06-tf1-py3` NGC container on NVIDIA DGX-1 (1x V100 16GB) GPUs.
 
 FP16
 

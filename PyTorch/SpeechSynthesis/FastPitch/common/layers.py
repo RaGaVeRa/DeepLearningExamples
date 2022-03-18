@@ -81,7 +81,7 @@ class ConvReLUNorm(torch.nn.Module):
 
     def forward(self, signal):
         out = F.relu(self.conv(signal))
-        out = self.norm(out.transpose(1, 2)).transpose(1, 2)
+        out = self.norm(out.transpose(1, 2)).transpose(1, 2).to(signal.dtype)
         return self.dropout(out)
 
 
@@ -94,7 +94,13 @@ class TacotronSTFT(torch.nn.Module):
         self.sampling_rate = sampling_rate
         self.stft_fn = STFT(filter_length, hop_length, win_length)
         mel_basis = librosa_mel_fn(
-            sampling_rate, filter_length, n_mel_channels, mel_fmin, mel_fmax)
+            sr=sampling_rate,
+            n_fft=filter_length,
+            n_mels=n_mel_channels,
+            fmin=mel_fmin,
+            fmax=mel_fmax
+        )
+
         mel_basis = torch.from_numpy(mel_basis).float()
         self.register_buffer('mel_basis', mel_basis)
 
